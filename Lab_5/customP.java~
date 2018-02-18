@@ -1,0 +1,61 @@
+import java.io.IOException;
+import java.util.StringTokenizer;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.Partitioner;
+public class customP{
+	public static class Map extends Mapper<Object, Text, Text, IntWritable>{
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException{
+			String line = value.toString();
+			String[] values = line.split(",");
+			int salary = Integer.parseInt(values[1]);
+			String country = values[3];
+			context.write(new Text(country), new IntWritable(salary));
+		}
+
+	}
+
+	public class dpart extends Partitioner<Text, IntWritable>{
+		public int getPartition(Text key,IntWritable value,int nr){
+			if(value.get()<30000)
+				return 0;
+			else if(value.get() < 50000)
+				return 1;
+			else
+				return 2;
+		} 
+	}
+
+	public static class Reduce extends Reducer<Text, IntWritable, Text, IntWritable>{
+		public void reduce(Text key, IntWritable value, Context context) throws IOException,InterruptedException{
+			context.write(key,value);
+
+		}
+	}
+
+	public static void main(String[] args) throws Exception{
+		Configuration conf = new Configuration();
+		Job job = new Job(conf,"customP");
+		job.setJarByClass(customP.class);
+		job.setMapperClass(Map.class);
+		job.setPartitionerClass(dpart.class);
+		job.setNumReduceTasks(3);
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(IntWritable.class);
+		job.setReducerClass(Reduce.class);
+		//job.setCombinerClass(Reduce.class);
+		//job.setInputFormatClass(TextInputFormat.class);
+		//job.setOutputFormatClass(TextOutputFormat.class);
+		FileInputFormat.addInputPath(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		job.waitForCompletion(true);
+	}
+}
+
